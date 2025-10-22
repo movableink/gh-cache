@@ -34,7 +34,7 @@ if (process.env.RUNS_ON_RUNNER_NAME && process.env.RUNS_ON_RUNNER_NAME !== "") {
 }
 
 const versionSalt = "1.0";
-const bucketName = process.env.RUNS_ON_S3_BUCKET_CACHE;
+const bucketName = getS3BucketName();
 const endpoint = process.env.RUNS_ON_S3_BUCKET_ENDPOINT;
 const region =
     process.env.RUNS_ON_AWS_REGION ||
@@ -255,4 +255,8 @@ export async function saveCache(
 
     await multipartUpload.done();
     core.info(`Cache saved successfully.`);
+}
+
+function getS3BucketName() {
+    return process.env.RUNS_ON_S3_BUCKET_CACHE;
 }

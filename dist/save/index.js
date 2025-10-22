@@ -100519,7 +100519,7 @@ if (process.env.RUNS_ON_RUNNER_NAME && process.env.RUNS_ON_RUNNER_NAME !== "") {
     delete process.env.AWS_SESSION_TOKEN;
 }
 const versionSalt = "1.0";
-const bucketName = process.env.RUNS_ON_S3_BUCKET_CACHE;
+const bucketName = getS3BucketName();
 const endpoint = process.env.RUNS_ON_S3_BUCKET_ENDPOINT;
 const region = process.env.RUNS_ON_AWS_REGION ||
     process.env.AWS_REGION ||
@@ -100675,6 +100675,9 @@ function saveCache(key, paths, archivePath, { compressionMethod, enableCrossOsAr
     });
 }
 exports.saveCache = saveCache;
+function getS3BucketName() {
+    return process.env.RUNS_ON_S3_BUCKET_CACHE;
+}
 
 
 /***/ }),
