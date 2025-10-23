@@ -15,6 +15,7 @@ import * as core from "@actions/core";
 import * as utils from "@actions/cache/lib/internal/cacheUtils";
 import { Upload } from "@aws-sdk/lib-storage";
 import { downloadCacheHttpClientConcurrent } from "./downloadUtils";
+import * as github from "@actions/github"
 
 export interface ArtifactCacheEntry {
     cacheKey?: string;
@@ -34,7 +35,6 @@ if (process.env.RUNS_ON_RUNNER_NAME && process.env.RUNS_ON_RUNNER_NAME !== "") {
 }
 
 const versionSalt = "1.0";
-const bucketName = getS3BucketName();
 const endpoint = process.env.RUNS_ON_S3_BUCKET_ENDPOINT;
 const region =
     process.env.RUNS_ON_AWS_REGION ||
@@ -100,6 +100,8 @@ export async function getCacheEntry(
     paths,
     { compressionMethod, enableCrossOsArchive }
 ) {
+    const bucketName = await getS3BucketName();
+
     const cacheEntry: ArtifactCacheEntry = {};
 
     // Find the most recent key matching one of the restoreKeys prefixes
@@ -143,6 +145,8 @@ export async function downloadCache(
     archivePath: string,
     options?: DownloadOptions
 ): Promise<void> {
+    const bucketName = await getS3BucketName();
+
     if (!bucketName) {
         throw new Error("Environment variable RUNS_ON_S3_BUCKET_CACHE not set");
     }
@@ -212,6 +216,8 @@ export async function saveCache(
     archivePath: string,
     { compressionMethod, enableCrossOsArchive, cacheSize: archiveFileSize }
 ): Promise<void> {
+    const bucketName = await getS3BucketName();
+
     if (!bucketName) {
         throw new Error("Environment variable RUNS_ON_S3_BUCKET_CACHE not set");
     }
@@ -257,6 +263,46 @@ export async function saveCache(
     core.info(`Cache saved successfully.`);
 }
 
-function getS3BucketName() {
-    return process.env.RUNS_ON_S3_BUCKET_CACHE;
+async function getS3BucketName(): Promise<string | undefined> {
+    const envBucketName = process.env.RUNS_ON_S3_BUCKET_CACHE;
+    core.info("Bucket from env: " + envBucketName);
+  
+    if (envBucketName && envBucketName.trim() !== "") {
+      return envBucketName;
+    }
+  
+    // If env variable is empty/blank, try to get org variable metadata via API (note: value won't be returned)
+    try {
+      const org = "movableink"; // Provide org name as input
+      const variableName = 'MI_RUNS_ON_S3_BUCKET_CACHE';
+
+      const token = process.env.GITHUB_TOKEN;
+      if (!token) {
+        core.warning('GITHUB_TOKEN is not set, cannot query org variable metadata.');
+        return undefined;
+      }
+  
+      const octokit = github.getOctokit(token);
+  
+      const response = await octokit.request('GET /orgs/{org}/actions/variables/{name}', {
+        org,
+        name: variableName,
+        headers: {
+          'X-GitHub-Api-Version': '2022-11-28',
+        },
+      });
+  
+      core.info(`Organization variable found: ${response.data.name}`);
+      core.info(`Visibility: ${response.data.visibility}`);
+      core.info(`Created at: ${response.data.created_at}`);
+      core.info(`Updated at: ${response.data.updated_at}`);
+  
+      core.warning('Note: The API does not expose the value of the variable for security reasons.');
+
+      // Since value is not returned, return undefined here or add other logic if needed
+      return undefined;
+    } catch (error: any) {
+      core.warning(`Failed to get org variable metadata: ${error.message}`);
+      return undefined;
+    }
 }
